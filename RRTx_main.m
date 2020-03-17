@@ -9,6 +9,8 @@
     look at the paper and consider this code just as a reference as to how
     to code the algorithm.
 %}
+% code checked and modifed by Yimeng Lu, luyi@ethz.ch
+% IfA, ETHz
 
 
 global node_pos parent edge_wt cost_goal neighbours line_handles rhs r_radius o_nodes discovered_obstacles video_name;
@@ -184,335 +186,322 @@ makeVideo();
 
 function plotIntersectObstacles(circle_center, radius, obstacles)
 
-hold on;
-t = 0.05:0.05:2*pi;
-x = circle_center(1) + radius*cos(t);
-y = circle_center(2) + radius*sin(t);
+    hold on;
+    t = 0.05:0.05:2*pi;
+    x = circle_center(1) + radius*cos(t);
+    y = circle_center(2) + radius*sin(t);
 
-circle_poly = polyshape(x,y);
+    circle_poly = polyshape(x,y);
 
-for i=1:length(obstacles)
-   x_pos = [obstacles(i,1),obstacles(i,1)+obstacles(i,3),obstacles(i,1)+obstacles(i,3),obstacles(i,1)];
-   y_pos = [obstacles(i,2),obstacles(i,2),obstacles(i,2)+obstacles(i,4),obstacles(i,2)+obstacles(i,4)];
-   obs_poly = polyshape(x_pos,y_pos);
-   
-   polyout = intersect(circle_poly, obs_poly);
-   plot(polyout, 'FaceColor', 'r', 'FaceAlpha', 1, 'EdgeColor', 'r');    
-end
+    for i=1:length(obstacles)
+    x_pos = [obstacles(i,1),obstacles(i,1)+obstacles(i,3),obstacles(i,1)+obstacles(i,3),obstacles(i,1)];
+    y_pos = [obstacles(i,2),obstacles(i,2),obstacles(i,2)+obstacles(i,4),obstacles(i,2)+obstacles(i,4)];
+    obs_poly = polyshape(x_pos,y_pos);
+    
+    polyout = intersect(circle_poly, obs_poly);
+    plot(polyout, 'FaceColor', 'r', 'FaceAlpha', 1, 'EdgeColor', 'r');    
+    end
 
-hold off;
-
+    hold off;
 end
 
 function makeVideo()
 
-global video_name file_index filename;
+    global video_name file_index filename;
 
-video_object = VideoWriter(video_name);
-video_object.Quality = 100;
-video_object.FrameRate = 4;
-open(video_object);
+    video_object = VideoWriter(video_name);
+    video_object.Quality = 100;
+    video_object.FrameRate = 4;
+    open(video_object);
 
-for i = 1:file_index-1
-    frameName = strcat(filename,num2str(i),'.jpg');
-    read_frame= im2frame(imread(frameName));
-    writeVideo(video_object, read_frame);   
-end
-close(video_object);
-
+    for i = 1:file_index-1
+        frameName = strcat(filename,num2str(i),'.jpg');
+        read_frame= im2frame(imread(frameName));
+        writeVideo(video_object, read_frame);   
+    end
+    close(video_object);
 end
 
 function saveFrame(handle)
 
-global filename file_index;
+    global filename file_index;
 
-full_name = strcat(filename,num2str(file_index),'.jpg');
-saveas(handle,full_name);
-file_index = file_index + 1;
+    full_name = strcat(filename,num2str(file_index),'.jpg');
+    saveas(handle,full_name);
+    file_index = file_index + 1;
 
 end
 
 function obstacles = getMap()
 
-obstacles =[0,20,30,10;
-            0,75,20,10;
-            35,60,10,35;
-            0,40,50,10;
-            50,10,10,50;
-            45,85,40,10;
-            65,25,10,50;
-            85,50,15,10;
-            70,5,20,10;
-            85,60,10,35] ;
-
+    obstacles =[0,20,30,10;
+                0,75,20,10;
+                35,60,10,35;
+                0,40,50,10;
+                50,10,10,50;
+                45,85,40,10;
+                65,25,10,50;
+                85,50,15,10;
+                70,5,20,10;
+                85,60,10,35] ;
 end
 
 function updateObstacles(nodes)
-
-global o_nodes curr_node;
-
-obstacle_inRange = intersect(nodes,o_nodes);
-
-if any(obstacle_inRange)
-    addNewObstacle(obstacle_inRange);
-    propogateDescendants();
-    verifyQueue(curr_node);
-    reduceInconsistency_v2();
-end
-
+    global o_nodes curr_node;
+    obstacle_inRange = intersect(nodes,o_nodes);
+    if any(obstacle_inRange)
+        addNewObstacle(obstacle_inRange);
+        propogateDescendants();
+        verifyQueue(curr_node);
+        reduceInconsistency_v2();
+    end
 end
 
 function addNewObstacle(nodes)
-
-global neighbours obstacle_cost edge_wt parent temp_edge_wt;
+    global neighbours obstacle_cost edge_wt parent temp_edge_wt;
 
     for i = 1:length(nodes)
         node = nodes(i);
         edge_wt(node) = {temp_edge_wt{node} + obstacle_cost};
         its_neighbours = neighbours{node};
         for j = 1:length(its_neighbours)
-           neigh = its_neighbours(j);
-           idx = find(neighbours{neigh}==node);
-           t_edge = edge_wt{neigh};       
-           t_edge(idx) = temp_edge_wt{neigh}(idx) + obstacle_cost;
-           edge_wt(neigh) = {t_edge};
-           if parent(neigh)==node
+        neigh = its_neighbours(j);
+        idx = find(neighbours{neigh}==node);
+        t_edge = edge_wt{neigh};       
+        t_edge(idx) = temp_edge_wt{neigh}(idx) + obstacle_cost;
+        edge_wt(neigh) = {t_edge};
+        if parent(neigh)==node
                 verifyOrphan(neigh);
-           end
         end
-    end
-    
-    
+        end
+    end  
 end
 
 function propogateDescendants()
 
-global discovered_obstacles children neighbours parent cost_goal rhs line_handles;
+    global discovered_obstacles children neighbours parent cost_goal rhs line_handles;
 
-nodes = discovered_obstacles;
-all_children = [];
-tic;
-while ~isempty(nodes) && toc < 2
-    nodes = unique(cell2mat(children(nodes)));  
-    all_children = union(all_children,nodes);
-end
+    nodes = discovered_obstacles;
+    all_children = [];
+    tic;
+    while ~isempty(nodes) && toc < 2
+        nodes = unique(cell2mat(children(nodes)));  
+        all_children = union(all_children,nodes);
+    end
 
-discovered_obstacles = union(discovered_obstacles,all_children);
+    discovered_obstacles = union(discovered_obstacles,all_children);
 
-for i = 1:length(discovered_obstacles)
-   spl_nodes = setdiff(neighbours{discovered_obstacles(i)},discovered_obstacles);
-   if ~isempty(spl_nodes)
-    cost_goal(spl_nodes) = Inf;
-    verifyQueue(spl_nodes); 
-   end
-end
+    for i = 1:length(discovered_obstacles)
+    spl_nodes = setdiff(neighbours{discovered_obstacles(i)},discovered_obstacles);
+    if ~isempty(spl_nodes)
+        cost_goal(spl_nodes) = Inf;
+        verifyQueue(spl_nodes); 
+    end
+    end
 
-cost_goal(discovered_obstacles) = Inf;
-rhs(discovered_obstacles) = Inf;
-for i = 1:length(discovered_obstacles)
-    its_parent = parent(discovered_obstacles(i));
-     if ~isnan(its_parent)
-         child = children{its_parent};
-         child_less = child(child ~= discovered_obstacles(i));
-         children(its_parent) = {child_less};
-     end
-end
-delete(line_handles(discovered_obstacles));
-parent(discovered_obstacles) = NaN;
-discovered_obstacles = [];
-
+    cost_goal(discovered_obstacles) = Inf;
+    rhs(discovered_obstacles) = Inf;
+    for i = 1:length(discovered_obstacles)
+        its_parent = parent(discovered_obstacles(i));
+        if ~isnan(its_parent)
+            child = children{its_parent};
+            child_less = child(child ~= discovered_obstacles(i));
+            children(its_parent) = {child_less};
+        end
+    end
+    delete(line_handles(discovered_obstacles));
+    parent(discovered_obstacles) = NaN;
+    discovered_obstacles = [];
 end
 
 function verifyOrphan(node)
 
-global queue discovered_obstacles;
+    global queue discovered_obstacles;
 
-if ~isempty(find(queue(:,1)==node,1))
-    queue(queue(:,1)==node,:) = Inf;
-end
-discovered_obstacles = union(discovered_obstacles,node);
+    if ~isempty(find(queue(:,1)==node,1))
+        queue(queue(:,1)==node,:) = Inf;
+    end
+    discovered_obstacles = union(discovered_obstacles,node);
 
 end
 
 function plotFrom(iter)
-global node_pos parent goal_handles;
-k = 1;
-while iter~=1
-    next_iter = parent(iter);
-    goal_handles(k) = line([node_pos(iter,1) node_pos(next_iter,1)],[node_pos(iter,2) node_pos(next_iter,2)],'color','g','LineWidth',3);
-    iter = next_iter;
-    k = k+1;
-end 
+    global node_pos parent goal_handles;
+    k = 1;
+    while iter~=1
+        next_iter = parent(iter);
+        goal_handles(k) = line([node_pos(iter,1) node_pos(next_iter,1)],[node_pos(iter,2) node_pos(next_iter,2)],'color','g','LineWidth',3);
+        iter = next_iter;
+        k = k+1;
+    end 
 end
 
 function verifyQueue(nodes)
 
-global queue;
+    global queue;
 
-key = getKeys(nodes);
-len = length(nodes);
-for i=1:len
-   idx = find(queue(:,1)==nodes(i)); 
-    if ~isempty(idx)
-        queue(idx,2:3) = key(i,:);
-    else
-        insertNodes(nodes(i))
+    key = getKeys(nodes);
+    len = length(nodes);
+    for i=1:len
+    idx = find(queue(:,1)==nodes(i)); 
+        if ~isempty(idx)
+            queue(idx,2:3) = key(i,:);
+        else
+            insertNodes(nodes(i))
+        end
     end
-end
 
 end
 
 function insertNodes(nodes)
 
-global queue;
+    global queue;
 
-key = getKeys(nodes);
-queue(end-length(nodes)+1:end,:) = [nodes,key];
-queue = sortrows(queue,[2 3 1]);
+    key = getKeys(nodes);
+    queue(end-length(nodes)+1:end,:) = [nodes,key];
+    queue = sortrows(queue,[2 3 1]);
 
-end
+    end
 
-function key = getKeys(nodes)
+    function key = getKeys(nodes)
 
-global rhs cost_goal;
+    global rhs cost_goal;
 
-key = [min([cost_goal(nodes),rhs(nodes)],[],2), cost_goal(nodes)];
+    key = [min([cost_goal(nodes),rhs(nodes)],[],2), cost_goal(nodes)];
 
 end
 
 function top_value = popQueue()
 
-global queue;
+    global queue;
 
-top_value = queue(1,:);
-queue(1,:) = Inf;
-queue = circshift(queue,-1);
+    top_value = queue(1,:);
+    queue(1,:) = Inf;
+    queue = circshift(queue,-1);
 
 end
 
 function top_value = topQueue()
 
-global queue;
-top_value = queue(1);
+    global queue;
+    top_value = queue(1);
 
 end
 
 function updateRHS(node)
 
-global neighbours rhs edge_wt parent discovered_obstacles children;
+    global neighbours rhs edge_wt parent discovered_obstacles children;
 
-neigh = neighbours{node};
-edge = edge_wt{node};
-banned_nodes = union(discovered_obstacles,neigh(parent(neigh)==node));
-[~,idx] = setdiff(neigh,banned_nodes);
-neigh = neigh(idx);
-edge = edge(idx);
+    neigh = neighbours{node};
+    edge = edge_wt{node};
+    banned_nodes = union(discovered_obstacles,neigh(parent(neigh)==node));
+    [~,idx] = setdiff(neigh,banned_nodes);
+    neigh = neigh(idx);
+    edge = edge(idx);
 
-[updated_rhs,new_parent] = min(edge + rhs(neigh));
-rhs(node) = updated_rhs;
-parent(node) = neigh(new_parent);
-children(neigh(new_parent)) = {unique([children{neigh(new_parent)};node])};
+    [updated_rhs,new_parent] = min(edge + rhs(neigh));
+    rhs(node) = updated_rhs;
+    parent(node) = neigh(new_parent);
+    children(neigh(new_parent)) = {unique([children{neigh(new_parent)};node])};
 end
 
 function rewireNeighbours(node)
 
-global cost_goal rhs delta neighbours edge_wt parent line_handles node_pos children;
+    global cost_goal rhs delta neighbours edge_wt parent line_handles node_pos children;
 
-if cost_goal(node)-rhs(node) > delta || isnan(cost_goal(node)-rhs(node))
-    neigh = neighbours{node};
-    edge = edge_wt{node};
-    idx = parent(neigh) ~= node;
-    neigh = neigh(idx);
-    edge = edge(idx);
-    
-    index = rhs(neigh) > edge + rhs(node);
-    to_update = neigh(index);
-    delete(line_handles(to_update));
-    rhs(to_update) = edge(index) + rhs(node);
-    parent(to_update) = node;
-    children(node) = {unique([children{node};to_update])};
-    for j = 1:length(to_update)
-           handle = line([node_pos(to_update(j),1) node_pos(node,1)],[node_pos(to_update(j),2) node_pos(node,2)],'Color',[0.2 0.2 0.2]);
-           line_handles(to_update(j)) = handle;
-    end
+    if cost_goal(node)-rhs(node) > delta || isnan(cost_goal(node)-rhs(node))
+        neigh = neighbours{node};
+        edge = edge_wt{node};
+        idx = parent(neigh) ~= node;
+        neigh = neigh(idx);
+        edge = edge(idx);
         
-    further_index = (cost_goal(to_update) - rhs(to_update) > delta) | (isnan(cost_goal(to_update) - rhs(to_update)));
-    verifyQueue(to_update(further_index));
-    
-end
+        index = rhs(neigh) > edge + rhs(node);
+        to_update = neigh(index);
+        delete(line_handles(to_update));
+        rhs(to_update) = edge(index) + rhs(node);
+        parent(to_update) = node;
+        children(node) = {unique([children{node};to_update])};
+        for j = 1:length(to_update)
+            handle = line([node_pos(to_update(j),1) node_pos(node,1)],[node_pos(to_update(j),2) node_pos(node,2)],'Color',[0.2 0.2 0.2]);
+            line_handles(to_update(j)) = handle;
+        end
+            
+        further_index = (cost_goal(to_update) - rhs(to_update) > delta) | (isnan(cost_goal(to_update) - rhs(to_update)));
+        verifyQueue(to_update(further_index));
+        
+    end
 
 end
 
 function reduceInconsistency()
     
-global queue cost_goal rhs delta;
+    global queue cost_goal rhs delta;
 
-while any(any(~isinf(queue)))
-   top = popQueue();
-   
-   if cost_goal(top(1)) - rhs(top(1)) > delta || isnan(cost_goal(top(1)) - rhs(top(1)))
-        updateRHS(top(1));
-        rewireNeighbours(top(1));      
-   end
-   cost_goal(top(1)) = rhs(top(1));
-   
-end
+    while any(any(~isinf(queue)))
+    top = popQueue();
+    
+    if cost_goal(top(1)) - rhs(top(1)) > delta || isnan(cost_goal(top(1)) - rhs(top(1)))
+            updateRHS(top(1));
+            rewireNeighbours(top(1));      
+    end
+    cost_goal(top(1)) = rhs(top(1));
+    
+    end
 
 end
 
 function reduceInconsistency_v2()
     
-global queue cost_goal rhs delta curr_node;
+    global queue cost_goal rhs delta curr_node;
 
-while any(any(~isinf(queue))) && (keyLess(topQueue(),curr_node) || rhs(curr_node)~=cost_goal(curr_node) || cost_goal(curr_node)==Inf)
-   top = popQueue();
-   
-   if cost_goal(top(1)) - rhs(top(1)) > delta || isnan(cost_goal(top(1)) - rhs(top(1)))
-        updateRHS(top(1));
-        rewireNeighbours(top(1));      
-   end
-   cost_goal(top(1)) = rhs(top(1));
-   
-end
+    while any(any(~isinf(queue))) && (keyLess(topQueue(),curr_node) || rhs(curr_node)~=cost_goal(curr_node) || cost_goal(curr_node)==Inf)
+    top = popQueue();
+    
+    if cost_goal(top(1)) - rhs(top(1)) > delta || isnan(cost_goal(top(1)) - rhs(top(1)))
+            updateRHS(top(1));
+            rewireNeighbours(top(1));      
+    end
+    cost_goal(top(1)) = rhs(top(1));
+    
+    end
 
 end
 
 function value = keyLess(top,start)
 
-top_key = getKeys(top);        start_key = getKeys(start);
-value = top_key(1)<start_key(1) & top_key(2)<start_key(2);
+    top_key = getKeys(top);        start_key = getKeys(start);
+    value = top_key(1)<start_key(1) & top_key(2)<start_key(2);
 
 end
 
 function plotObstacles(obstacles)
 
-[rows,~] = size(obstacles);
-hold on;
-for i = 1:rows
-    rectangle('Position',obstacles(i,:),'FaceColor','r');
-end
-hold off;
+    [rows,~] = size(obstacles);
+    hold on;
+    for i = 1:rows
+        rectangle('Position',obstacles(i,:),'FaceColor','r');
+    end
+    hold off;
 
 end
 
 function curr_ptr = plotIndication(curr_ptr)
-global node_pos curr_node r_radius;
-    hold on;
-    curr_ptr(1) = plot(node_pos(curr_node,1),node_pos(curr_node,2),'g.','MarkerSize',20);
-    curr_ptr(2) = viscircles(node_pos(curr_node,:),r_radius,'LineStyle','--','Color','r');
-    hold off;
+    global node_pos curr_node r_radius;
+        hold on;
+        curr_ptr(1) = plot(node_pos(curr_node,1),node_pos(curr_node,2),'g.','MarkerSize',20);
+        curr_ptr(2) = viscircles(node_pos(curr_node,:),r_radius,'LineStyle','--','Color','r');
+        hold off;
 end
 
 function o_nodes = getObstacleNodes(obstacles)
 
-global node_pos;
-[x,~] = size(obstacles);
-o_nodes = [];
-for i=1:x
-    within_range = node_pos>obstacles(i,1:2) & node_pos<obstacles(i,1:2)+obstacles(i,3:4);
-    idx = within_range(:,1) & within_range(:,2);
-    o_nodes = union(o_nodes,find(idx));
-end
-
-
+    global node_pos;
+    [x,~] = size(obstacles);
+    o_nodes = [];
+    for i=1:x
+        within_range = node_pos>obstacles(i,1:2) & node_pos<obstacles(i,1:2)+obstacles(i,3:4);
+        idx = within_range(:,1) & within_range(:,2);
+        o_nodes = union(o_nodes,find(idx));
+    end
 end
