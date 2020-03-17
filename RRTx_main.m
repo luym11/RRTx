@@ -16,7 +16,7 @@
 global node_pos parent edge_wt cost_goal neighbours line_handles rhs r_radius o_nodes discovered_obstacles video_name;
 global goal_handles children  start_idx temp_edge_wt queue delta curr_node obstacle_cost filename file_index;
 
-start = [8, 0];       goal = [8, 16];        epsilon = 0.5;         delta = 0;        ball_radius = (1)^2;
+start = [8, 0];       goal = [8, 16];        epsilon = 0.2;         delta = 0;        ball_radius = (0.5)^2;
 filename = 'RRTx_Map1_';            file_index = 1;              sample_frame = 60;
 video_name = 'RRTx_Map1';
 samples = 10000;
@@ -37,13 +37,26 @@ time_limit = 70;                    pause_on = 0.001;                           
 goalAchieved=0;                     %tic;    
 saveFrame(gcf);
 
+% read the static obstacles
+obstacles = getMap();
+
 while i<2000
 %   'i' is the Node number
     i = i+1;
     if ~goal_chosen && any(i == choose_goal_node_at_i) % goal sampling
         rand_point = start(1:2);
     else
-        rand_point = limit_dia*rand(1,2);
+        % if rand_point is inside the static obstacles, re-sample until it's not
+        sampleFailFlag = 1;
+        [x,~] = size(obstacles);
+        while(sampleFailFlag)
+            rand_point = limit_dia*rand(1,2);
+            for j = 1:x
+                within_range = rand_point>obstacles(j,1:2) & rand_point<obstacles(j,1:2)+obstacles(j,3:4);
+                idx = within_range(:,1) & within_range(:,2);
+            end
+            sampleFailFlag = any(idx);
+        end
     end
 %   Calculate the distance of random point to all the nodes
     dist_points = pdist2(node_pos,rand_point,'squaredeuclidean');
@@ -130,7 +143,7 @@ end
 % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % 
 
 % Now we perform D*Lite
-obstacles = getMap();
+% obstacles = getMap();
 obstacle_cost = Inf;
 % obstacles = [0 30 80 20;20 70 80 20];       
 r_radius = 2;                              sqr_radius = (r_radius)^2;                
