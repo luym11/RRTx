@@ -16,7 +16,7 @@
 global node_pos parent edge_wt cost_goal neighbours line_handles rhs r_radius o_nodes discovered_obstacles video_name;
 global goal_handles children  start_idx temp_edge_wt queue delta curr_node obstacle_cost filename file_index;
 
-start = [1 1];       goal = [99 99];        epsilon = 5;         delta = 0;        ball_radius = (8)^2;
+start = [8, 0];       goal = [8, 16];        epsilon = 0.5;         delta = 0;        ball_radius = (1)^2;
 filename = 'RRTx_Map1_';            file_index = 1;              sample_frame = 60;
 video_name = 'RRTx_Map1';
 samples = 10000;
@@ -28,9 +28,9 @@ rng(1);
 figure,plot(start(1),start(2),'r.','MarkerSize',15);
 hold on;
 plot(goal(1),goal(2),'g.','MarkerSize',15);
-h = gca;                            h.XLim = [0 100];                           h.YLim = [0 100];
+h = gca;                            h.XLim = [0 20];                           h.YLim = [0 20];
 i = 1;                              choose_goal_node_at_i = 600:50:800;         goal_chosen = 0;
-node_pos(i,:) = goal(1:2);          cost_goal(i) = 0;                           limit_dia = 100;
+node_pos(i,:) = goal(1:2);          cost_goal(i) = 0;                           limit_dia = 20;
 rhs(i) = 0;                         discovered_obstacles = [];
 
 time_limit = 70;                    pause_on = 0.001;                           line_handles = gobjects(samples,1);
@@ -40,7 +40,7 @@ saveFrame(gcf);
 while i<2000
 %   'i' is the Node number
     i = i+1;
-    if ~goal_chosen && any(i == choose_goal_node_at_i) 
+    if ~goal_chosen && any(i == choose_goal_node_at_i) % goal sampling
         rand_point = start(1:2);
     else
         rand_point = limit_dia*rand(1,2);
@@ -133,7 +133,7 @@ end
 obstacles = getMap();
 obstacle_cost = Inf;
 % obstacles = [0 30 80 20;20 70 80 20];       
-r_radius = 10;                              sqr_radius = (r_radius)^2;                
+r_radius = 2;                              sqr_radius = (r_radius)^2;                
 curr_node = start_idx;                      prev_node = curr_node;
 curr_ptr = gobjects(2,1);                   
 
@@ -233,22 +233,17 @@ function saveFrame(handle)
 end
 
 function obstacles = getMap()
-
-    obstacles =[0,20,30,10;
-                0,75,20,10;
-                35,60,10,35;
-                0,40,50,10;
-                50,10,10,50;
-                45,85,40,10;
-                65,25,10,50;
-                85,50,15,10;
-                70,5,20,10;
-                85,60,10,35] ;
+    % obstacle format: [x_LB, y_LB, x_LEN, y_LEN]
+    obstacles =[6, 0, 1, 6;
+                10, 0, 1, 6;
+                6 , 14, 8, 1;
+                15, 14, 5, 1;
+                17, 9, 1, 5];
 end
 
 function updateObstacles(nodes)
     global o_nodes curr_node;
-    obstacle_inRange = intersect(nodes,o_nodes);
+    obstacle_inRange = intersect(nodes,o_nodes); % all the RRT tree nodes that are within LB/UR and also in range of observation
     if any(obstacle_inRange)
         addNewObstacle(obstacle_inRange);
         propogateDescendants();
@@ -495,7 +490,7 @@ function curr_ptr = plotIndication(curr_ptr)
 end
 
 function o_nodes = getObstacleNodes(obstacles)
-
+    % return all "contaminated" nodes in RRT tree
     global node_pos;
     [x,~] = size(obstacles);
     o_nodes = [];
