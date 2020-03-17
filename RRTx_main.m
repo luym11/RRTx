@@ -260,14 +260,14 @@ function addNewObstacle(nodes)
         edge_wt(node) = {temp_edge_wt{node} + obstacle_cost};
         its_neighbours = neighbours{node};
         for j = 1:length(its_neighbours)
-        neigh = its_neighbours(j);
-        idx = find(neighbours{neigh}==node);
-        t_edge = edge_wt{neigh};       
-        t_edge(idx) = temp_edge_wt{neigh}(idx) + obstacle_cost;
-        edge_wt(neigh) = {t_edge};
-        if parent(neigh)==node
-                verifyOrphan(neigh);
-        end
+            neigh = its_neighbours(j);
+            idx = find(neighbours{neigh}==node);
+            t_edge = edge_wt{neigh};       
+            t_edge(idx) = temp_edge_wt{neigh}(idx) + obstacle_cost;
+            edge_wt(neigh) = {t_edge};
+            if parent(neigh)==node
+                    verifyOrphan(neigh);
+            end
         end
     end  
 end
@@ -287,11 +287,11 @@ function propogateDescendants()
     discovered_obstacles = union(discovered_obstacles,all_children);
 
     for i = 1:length(discovered_obstacles)
-    spl_nodes = setdiff(neighbours{discovered_obstacles(i)},discovered_obstacles);
-    if ~isempty(spl_nodes)
-        cost_goal(spl_nodes) = Inf;
-        verifyQueue(spl_nodes); 
-    end
+        spl_nodes = setdiff(neighbours{discovered_obstacles(i)},discovered_obstacles);
+        if ~isempty(spl_nodes)
+            cost_goal(spl_nodes) = Inf;
+            verifyQueue(spl_nodes); 
+        end
     end
 
     cost_goal(discovered_obstacles) = Inf;
@@ -338,7 +338,7 @@ function verifyQueue(nodes)
     key = getKeys(nodes);
     len = length(nodes);
     for i=1:len
-    idx = find(queue(:,1)==nodes(i)); 
+        idx = find(queue(:,1)==nodes(i)); 
         if ~isempty(idx)
             queue(idx,2:3) = key(i,:);
         else
