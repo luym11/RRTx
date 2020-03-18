@@ -15,8 +15,12 @@
 
 global node_pos parent edge_wt cost_goal neighbours line_handles rhs r_radius o_nodes discovered_obstacles video_name;
 global goal_handles children  start_idx temp_edge_wt queue delta curr_node obstacle_cost filename file_index;
+global f_nodes
 
-start = [8, 0];       goal = [8, 16];        epsilon = 0.2;         delta = 0;        ball_radius = (0.5)^2;
+global monteCarloFireMapCur
+load MCMap.mat
+
+start = [8.5, 8.5];       goal = [8.5, 16.5];        epsilon = 0.2;         delta = 0;        ball_radius = (0.5)^2;
 filename = 'RRTx_Map1_';            file_index = 1;              sample_frame = 60;
 video_name = 'RRTx_Map1';
 samples = 10000;
@@ -40,7 +44,7 @@ saveFrame(gcf);
 % read the static obstacles
 obstacles = getMap();
 
-while i<2000
+while i<10000
 %   'i' is the Node number
     i = i+1;
     if ~goal_chosen && any(i == choose_goal_node_at_i) % goal sampling
@@ -150,27 +154,38 @@ r_radius = 2;                              sqr_radius = (r_radius)^2;
 curr_node = start_idx;                      prev_node = curr_node;
 curr_ptr = gobjects(2,1);                   
 
-o_nodes = getObstacleNodes(obstacles);      
+o_nodes = getObstacleNodes(obstacles);     
+f_nodes = []; 
 % plotObstacles(obstacles);
 pause_sim = 0.5;    
 saveFrame(gcf);
+t = 1;
+ins = 22;
 
 while ~isnan(curr_node)
     
     r_dist = pdist2(node_pos,node_pos(curr_node,:),'squaredeuclidean');
     in_range = find(r_dist<sqr_radius);
     
-%     o_nodes = getObstacleNodes(obstacles);
+    if t >= 1
+        % update f_nodes before taking next step
+        fires = getFireMap(ins, t); % the fire situation at time t
+        getFireNodes(fires);
+    end
+
     updateObstacles(in_range);
         
     pause(pause_sim);
     next_node = parent(curr_node);
     line([node_pos(curr_node,1) node_pos(prev_node,1)],[node_pos(curr_node,2) node_pos(prev_node,2)],'Color','k','LineWidth',3);
+    % [node_pos(curr_node,1), node_pos(curr_node,2); node_pos(prev_node,1), node_pos(prev_node,2)]
+    t = t + pdist([node_pos(curr_node,1), node_pos(curr_node,2); node_pos(prev_node,1), node_pos(prev_node,2)]);
         
     delete(curr_ptr);    
     curr_ptr = plotIndication(curr_ptr);
     
     plotIntersectObstacles(node_pos(curr_node,:), r_radius, obstacles);
+    plotIntersectFires(node_pos(curr_node,:), r_radius, fires);
     
     delete(goal_handles);
     plotFrom(curr_node);
@@ -197,6 +212,27 @@ makeVideo();
 
 % SubRoutines:
 
+function plotIntersectFires(circle_center, radius, fires)
+
+    hold on;
+    t = 0.05:0.05:2*pi;
+    x = circle_center(1) + radius*cos(t);
+    y = circle_center(2) + radius*sin(t);
+
+    circle_poly = polyshape(x,y);
+
+    for i=1:length(fires)
+    x_pos = [fires(i,1),fires(i,1)+1,fires(i,1)+1,fires(i,1)];
+    y_pos = [fires(i,2),fires(i,2),fires(i,2)+1,fires(i,2)+1];
+    obs_poly = polyshape(x_pos,y_pos);
+    
+    polyout = intersect(circle_poly, obs_poly);
+    plot(polyout, 'FaceColor', 'r', 'FaceAlpha', 1, 'EdgeColor', 'r');    
+    end
+
+    hold off;
+end
+
 function plotIntersectObstacles(circle_center, radius, obstacles)
 
     hold on;
@@ -212,7 +248,7 @@ function plotIntersectObstacles(circle_center, radius, obstacles)
     obs_poly = polyshape(x_pos,y_pos);
     
     polyout = intersect(circle_poly, obs_poly);
-    plot(polyout, 'FaceColor', 'r', 'FaceAlpha', 1, 'EdgeColor', 'r');    
+    plot(polyout, 'FaceColor', 'b', 'FaceAlpha', 1, 'EdgeColor', 'b');    
     end
 
     hold off;
@@ -254,11 +290,22 @@ function obstacles = getMap()
                 17, 9, 1, 5];
 end
 
+function fires = getFireMap(instance, time)
+    % input will be like coordinates (at each time step its different)
+    % make them like [x1,y1; x2,y2; ...];
+    global monteCarloFireMapCur;
+    k_time = round(time);
+    [I,J] = find(reshape(monteCarloFireMapCur(instance, k_time, :, :), 20, 20));
+    fires = [I J];
+end
+
 function updateObstacles(nodes)
-    global o_nodes curr_node;
+    global o_nodes f_nodes curr_node;
     obstacle_inRange = intersect(nodes,o_nodes); % all the RRT tree nodes that are within LB/UR and also in range of observation
-    if any(obstacle_inRange)
-        addNewObstacle(obstacle_inRange);
+    fire_inRange = intersect(nodes, f_nodes);
+    inRange = union(obstacle_inRange, fire_inRange);
+    if any(inRange)
+        addNewObstacle(inRange);
         propogateDescendants();
         verifyQueue(curr_node);
         reduceInconsistency_v2();
@@ -338,7 +385,12 @@ function plotFrom(iter)
     k = 1;
     while iter~=1
         next_iter = parent(iter);
-        goal_handles(k) = line([node_pos(iter,1) node_pos(next_iter,1)],[node_pos(iter,2) node_pos(next_iter,2)],'color','g','LineWidth',3);
+        try
+            goal_handles(k) = line([node_pos(iter,1) node_pos(next_iter,1)],[node_pos(iter,2) node_pos(next_iter,2)],'color','g','LineWidth',3);
+        catch
+            iter
+            next_iter
+        end
         iter = next_iter;
         k = k+1;
     end 
@@ -503,7 +555,7 @@ function curr_ptr = plotIndication(curr_ptr)
 end
 
 function o_nodes = getObstacleNodes(obstacles)
-    % return all "contaminated" nodes in RRT tree
+    % return all "inside static obstacle" nodes in RRT tree
     global node_pos;
     [x,~] = size(obstacles);
     o_nodes = [];
@@ -511,5 +563,16 @@ function o_nodes = getObstacleNodes(obstacles)
         within_range = node_pos>obstacles(i,1:2) & node_pos<obstacles(i,1:2)+obstacles(i,3:4);
         idx = within_range(:,1) & within_range(:,2);
         o_nodes = union(o_nodes,find(idx));
+    end
+end
+
+function getFireNodes(fires)
+    % return all "contaminated by fire" nodes in RRT tree
+    global node_pos f_nodes;
+    [x,~] = size(fires);
+    for i=1:x
+        within_range = node_pos>fires(i,1:2) & node_pos<fires(i,1:2)+[1,1];
+        idx = within_range(:,1) & within_range(:,2);
+        f_nodes = union(f_nodes,find(idx));
     end
 end
