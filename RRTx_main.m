@@ -20,7 +20,7 @@ global f_nodes
 global monteCarloFireMapCur
 load MCMap.mat
 
-start = [8.5, 8.5];       goal = [8.5, 16.5];        epsilon = 0.2;         delta = 0;        ball_radius = (0.5)^2;
+start = [8.5, 8.5];       goal = [8.5, 16.5];        epsilon = 0.5;         delta = 0;        ball_radius=(0.9)^2;
 filename = 'RRTx_Map1_';            file_index = 1;              sample_frame = 60;
 video_name = 'RRTx_Map1';
 samples = 10000;
@@ -47,31 +47,49 @@ obstacles = getMap();
 while i<10000
 %   'i' is the Node number
     i = i+1;
+    if mod(i, 1000) == 0
+        % print every 1000 samples
+        i 
+    end
     if ~goal_chosen && any(i == choose_goal_node_at_i) % goal sampling
         rand_point = start(1:2);
+        %   Calculate the distance of random point to all the nodes
+        dist_points = pdist2(node_pos,rand_point,'squaredeuclidean');
+        [sqDist,idx] = min(dist_points);
+        
+        %   Bring the node at a distance of epsilon near to the closest node
+        n_point = node_pos(idx,:);
+        n_dist = realsqrt(sqDist);
+        min_dist = min(n_dist,epsilon); % If the node is closer than epsilon, we have the same distance
+        rand_point = n_point + (rand_point - n_point)*min_dist/n_dist;
+        node_pos(i,:) = rand_point;
     else
         % if rand_point is inside the static obstacles, re-sample until it's not
         sampleFailFlag = 1;
         [x,~] = size(obstacles);
         while(sampleFailFlag)
+            node_pos(i,:) = NaN;
             rand_point = limit_dia*rand(1,2);
+            %   Calculate the distance of random point to all the nodes
+            dist_points = pdist2(node_pos,rand_point,'squaredeuclidean');
+            [sqDist,idx] = min(dist_points);
+            
+            %   Bring the node at a distance of epsilon near to the closest node
+            n_point = node_pos(idx,:);
+            n_dist = realsqrt(sqDist);
+            min_dist = min(n_dist,epsilon); % If the node is closer than epsilon, we have the same distance
+            rand_point = n_point + (rand_point - n_point)*min_dist/n_dist;
+            node_pos(i,:) = rand_point;
+            idY=[];
             for j = 1:x
                 within_range = rand_point>obstacles(j,1:2) & rand_point<obstacles(j,1:2)+obstacles(j,3:4);
-                idx = within_range(:,1) & within_range(:,2);
+                idy = within_range(:,1) & within_range(:,2);
+                idY = [idY idy];
             end
-            sampleFailFlag = any(idx);
+            sampleFailFlag = any(idY);
         end
     end
-%   Calculate the distance of random point to all the nodes
-    dist_points = pdist2(node_pos,rand_point,'squaredeuclidean');
-    [sqDist,idx] = min(dist_points);
-    
-%   Bring the node at a distance of epsilon near to the closest node
-    n_point = node_pos(idx,:);
-    n_dist = realsqrt(sqDist);
-    min_dist = min(n_dist,epsilon); % If the node is closer than epsilon, we have the same distance
-    rand_point = n_point + (rand_point - n_point)*min_dist/n_dist;
-    node_pos(i,:) = rand_point;
+
     
 %   After bringing the node closer, now calculate the distances to all the nodes again
     all_edge_wt = pdist2(node_pos,rand_point,'squaredeuclidean');
@@ -79,6 +97,10 @@ while i<10000
     
 %   Select the nodes that are within the ball radius. These become the neighbours. The 'n_' represents neighbours 
     n_nodes = find(n_node_idx);
+    if ~any(n_nodes)
+        i = i - 1;
+        continue;
+    end
     n_edge_wt = realsqrt(all_edge_wt(n_node_idx));
     n_rhs = rhs(n_node_idx);
     
